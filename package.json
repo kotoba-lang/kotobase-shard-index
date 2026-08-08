@@ -1,0 +1,19 @@
+{
+  "name": "kotobase-shard-index",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A search index a client reads directly out of an object store — no query server, no database to hydrate, no cache tier.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "nbb --classpath src test/run_tests.cljs",
+    "mutations": "nbb --classpath src test/mutations.cljs",
+    "budget": "nbb --classpath src bench/check_budget.cljs",
+    "budget:write": "nbb --classpath src bench/check_budget.cljs --write",
+    "bench:gets": "nbb --classpath src bench/get_scaling.cljs",
+    "bench:route": "nbb --classpath src bench/route_scaling.cljs",
+    "bench:incremental": "nbb --classpath src:bench bench/incremental.cljs"
+  },
+  "devDependencies": {
+    "nbb": "1.4.208"
+  }
+}
