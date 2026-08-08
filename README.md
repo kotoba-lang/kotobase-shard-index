@@ -205,6 +205,32 @@ evidence lives in the ref, not the block. It is `inga`'s to decide. What is
 guaranteed is that `append!` is a pure function of `(manifest, docs)`: the same
 append twice gives the same manifest CID, so a retry is free.
 
+## Compacting — `compact.cljc`
+
+`append!` adds a shard per batch, and every shard holding a query term is a
+shard the client opens. Appending without compacting trades a rebuild for a
+read path that degrades on every batch.
+
+Compaction merges adjacent shards. Because every shard was scored against the
+same recorded basis, merging is a concatenation plus a re-sort — **not a
+rescore** — so **the answer does not change**, score for score. The suite
+checks that against the index as it was before the merge, and the bench checks
+it again at corpus scale.
+
+That is why compaction and rebuilding are separate operations:
+
+| | fixes | changes answers? |
+|---|---|---|
+| `compact!` | fan-out (shard count) | **no** |
+| `build!` (rebuild) | drift (stale scoring basis) | yes — measured 0.64 top-10 overlap at basis ×2.92 |
+
+Only adjacent shards merge: doc-ids are contiguous and metadata resolves by
+arithmetic on `:doc-base`, so a non-adjacent merge would leave a hole. Since
+appends always add at the end, adjacent is what a crawl accumulates anyway.
+`plan` suggests a window (most shards removed for the fewest documents
+rewritten); `compact!` takes explicit ids so a caller with its own policy is
+not fighting it.
+
 ## Measured on a real corpus
 
 Every number above this point came from `synth/corpus` — a Zipf draw over

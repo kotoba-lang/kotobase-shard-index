@@ -28,6 +28,7 @@
             [kotobase-shard-index.block :as block]
             [kotobase-shard-index.build :as build]
             [kotobase-shard-index.codec :as codec]
+            [kotobase-shard-index.compact :as compact]
             [kotobase-shard-index.node :as node]
             [kotobase-shard-index.query :as query]
             [kotobase-shard-index.route :as route]
@@ -35,6 +36,8 @@
 
 (def k 10)
 (def root (or (some-> js/process.env.SHARD_INDEX_ROOT) "."))
+
+(defn- mean [xs] (if (empty? xs) 0 (/ (reduce + 0 xs) (count xs))))
 
 (defn- r2 [x] (/ (js/Math.round (* 100 x)) 100))
 (defn- scores [r] (mapv :score (:hits r)))
@@ -135,6 +138,58 @@
                      :written-by-append (- after before)
                      :fraction-of-index (r2 (/ (- after before) (double before)))}])))))
 
+(defn compaction-run
+  "Append in batches like a crawl, then compact, and measure what each does to
+  the read path.
+
+  The two are opposites and the point is to see both: an append adds a shard,
+  and every shard holding a query term is a shard the client opens. Compaction
+  removes shards without touching scores — so its effect should show up as
+  GETs, and NOT as a changed answer."
+  [docs batches shard-count]
+  (let [head-n (quot (count docs) 2)
+        head (subvec docs 0 head-n)
+        tail (subvec docs head-n)
+        per (max 1 (quot (count tail) batches))
+        store (block/memory-store)
+        {:keys [queries]} (rc/queries docs analyze/tokenize)
+        b0 (build/build! store node/sha256-hex head {:shard-count shard-count})
+        [cs tally] (block/counting store)
+        measure (fn [mc]
+                  (let [rs (mapv (fn [q]
+                                   (block/reset-tally! tally)
+                                   (let [r (route/search cs mc q {:k k})]
+                                     {:gets (:gets @tally)
+                                      :waves (get-in r [:stats :waves])
+                                      :scores (mapv :score (:hits r))}))
+                                 queries)]
+                    {:shards (count (:shards (block/get-block store mc)))
+                     :mean-gets (r2 (mean (map :gets rs)))
+                     :max-waves (apply max (map :waves rs))
+                     :scores (mapv :scores rs)}))
+        after-build (measure (:manifest-cid b0))
+        appended (loop [mc (:manifest-cid b0) i 0 acc []]
+                   (if (>= (* i per) (count tail))
+                     {:mc mc :steps acc}
+                     (let [batch (subvec tail (* i per) (min (count tail) (* (inc i) per)))
+                           r (append/append! store store node/sha256-hex mc batch)]
+                       (recur (:manifest-cid r) (inc i) (conj acc (measure (:manifest-cid r)))))))
+        before-compact (measure (:mc appended))
+        blocks-before (block/block-count store)
+        ids (compact/plan store (:mc appended) {})
+        c (when ids (compact/compact! store store node/sha256-hex (:mc appended) ids))
+        after-compact (when c (measure (:manifest-cid c)))]
+    {:head head-n :batches batches
+     :after-build after-build
+     :per-append (mapv #(dissoc % :scores) (:steps appended))
+     :before-compact (dissoc before-compact :scores)
+     :compacted (:compacted c)
+     :after-compact (when after-compact (dissoc after-compact :scores))
+     :blocks-written-by-compaction (- (block/block-count store) blocks-before)
+     ;; the load-bearing check: compaction is not allowed to move an answer
+     :answers-unchanged (when after-compact
+                          (= (:scores before-compact) (:scores after-compact)))}))
+
 (defn -main [& args]
   (let [out (or (first args)
                 "bench/results/2026-08-08-incremental-real-corpus.edn")
@@ -154,11 +209,13 @@
                 {:label :single-doc
                  :note "the worst case for an append: one document, so the cost is all fixed overhead"
                  :r (run (subvec adrs 0 1000) 999 8)}]
+          comp (compaction-run (subvec adrs 0 1600) 6 4)
           ab-1 (chunking-ab (subvec adrs 0 1000) 999 8)
           ab-batch (chunking-ab both (count adrs) 8)
           result {:generated "2026-08-08"
                   :corpus {:adrs (count adrs) :readmes (count readmes)}
                   :chunking-ab {:one-document ab-1 :large-batch ab-batch}
+                  :compaction comp
                   :runs (mapv (fn [{:keys [label note r]}]
                                 (assoc r :label label :note note))
                               runs)}]
@@ -182,6 +239,19 @@
           (println (str "    " (:incremental-gets q) " gets / " (:incremental-waves q)
                         " waves / absent " (:shards-absent q)
                         " / overlap " (:id-overlap q) "   " (pr-str (:q q))))))
+      (println "\ncompaction — appends grow the shard count, compaction takes it back")
+      (println (str "  after build          : " (:shards (:after-build comp)) " shards, "
+                    (:mean-gets (:after-build comp)) " GETs"))
+      (doseq [[i s] (map-indexed vector (:per-append comp))]
+        (println (str "  after append " (inc i) "       : " (:shards s) " shards, "
+                      (:mean-gets s) " GETs, " (:max-waves s) " waves")))
+      (println (str "  compacted " (pr-str (:merged (:compacted comp)))
+                    " -> " (:into (:compacted comp))
+                    " (" (:blocks-written-by-compaction comp) " blocks written)"))
+      (println (str "  after compaction     : " (:shards (:after-compact comp)) " shards, "
+                    (:mean-gets (:after-compact comp)) " GETs, "
+                    (:max-waves (:after-compact comp)) " waves"))
+      (println (str "  answers unchanged by compaction: " (:answers-unchanged comp)))
       (println "\nchunking A/B — same corpus, same append, only the boundary rule differs")
       (doseq [[label ab] [["append 1 document to 999" ab-1]
                           ["append 3,799 to 1,976" ab-batch]]]

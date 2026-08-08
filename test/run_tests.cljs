@@ -12,6 +12,7 @@
             [kotobase-shard-index.block :as block]
             [kotobase-shard-index.build :as build]
             [kotobase-shard-index.codec :as codec]
+            [kotobase-shard-index.compact :as compact]
             [kotobase-shard-index.node :as node]
             [kotobase-shard-index.query :as query]
             [kotobase-shard-index.route :as route]
@@ -449,6 +450,106 @@
   (check! "append: an index without a routing dictionary is refused loudly"
           (try (append/append! store store node/sha256-hex manifest-cid
                                (synth/corpus 50 14 vocab-size))
+               false
+               (catch :default _ true))
+          nil))
+
+;; ── 8c. compaction ──────────────────────────────────────────────────
+;; `append!` adds a shard per batch and every shard holding a query term is a
+;; shard the client opens, so appending without compacting degrades the read
+;; path on every batch. What compaction must do:
+;;
+;;   (a) NOT change the answer. Every shard was scored against the same
+;;       recorded basis, so a merge is a concatenation plus a re-sort. This is
+;;       the load-bearing assertion and it is checked against the index as it
+;;       was BEFORE the merge, not against a rebuild — a rebuild would rescore
+;;       and legitimately differ.
+;;   (b) reduce the shard count, and the fan-out with it;
+;;   (c) leave the shards it did not touch byte-identical;
+;;   (d) refuse a merge that would leave a hole in the doc-id range.
+
+(let [store (block/memory-store)
+      b0 (build/build! store node/sha256-hex (synth/corpus 1200 61 vocab-size)
+                       {:shard-count 4})
+      ;; three appends, as a crawl would produce
+      m1 (:manifest-cid (append/append! store store node/sha256-hex (:manifest-cid b0)
+                                        (mapv #(update % :url str "-a")
+                                              (synth/corpus 300 62 vocab-size))))
+      m2 (:manifest-cid (append/append! store store node/sha256-hex m1
+                                        (mapv #(update % :url str "-b")
+                                              (synth/corpus 300 63 vocab-size))))
+      m3 (:manifest-cid (append/append! store store node/sha256-hex m2
+                                        (mapv #(update % :url str "-c")
+                                              (synth/corpus 300 64 vocab-size))))
+      before (block/get-block store m3)
+      ids (compact/plan store m3 {})
+      result (compact/compact! store store node/sha256-hex m3 ids)
+      mc (:manifest-cid result)
+      after (block/get-block store mc)]
+
+  (is= "compact: seven shards before" 7 (count (:shards before)))
+  (check! (str "compact: plan picks an adjacent run " (pr-str ids))
+          (>= (count ids) 2) ids)
+  (check! (str "compact: shard count drops " (count (:shards before))
+               " -> " (count (:shards after)))
+          (< (count (:shards after)) (count (:shards before)))
+          (:compacted result))
+  (is= "compact: no documents are lost"
+       (get-in before [:stats :doc-count]) (get-in after [:stats :doc-count]))
+
+  ;; (a) — the whole reason compaction is not a rebuild.
+  (let [diffs (vec (for [q queries
+                         :let [pre (route/search store m3 q {:k 10})
+                               post (route/search store mc q {:k 10})]
+                         :when (not= (mapv :score (:hits pre))
+                                     (mapv :score (:hits post)))]
+                     {:q q
+                      :pre (mapv (juxt :doc-id :score) (:hits pre))
+                      :post (mapv (juxt :doc-id :score) (:hits post))}))]
+    (check! "compact: the answer is identical to the index before the merge"
+            (empty? diffs) (first diffs)))
+
+  ;; and the merged index is still internally consistent
+  (let [bad (vec (for [q queries
+                       :let [fast (route/search store mc q {:k 10})
+                             slow (query/top-k-exhaustive store mc q {:k 10})]
+                       :when (not= (mapv :score (:hits fast)) (mapv :score (:hits slow)))]
+                   {:q q}))]
+    (check! "compact: the bounded scan still agrees with a full scan"
+            (empty? bad) (first bad)))
+
+  ;; (b) — fan-out is the thing compaction exists to fix, so measure it rather
+  ;; than infer it from the shard count.
+  (let [[cs tally] (block/counting store)
+        gets (fn [m] (reduce + 0 (mapv (fn [q]
+                                         (block/reset-tally! tally)
+                                         (route/search cs m q {:k 10})
+                                         (:gets @tally))
+                                       queries)))
+        g-pre (gets m3) g-post (gets mc)]
+    (check! (str "compact: GETs per query do not increase (" g-pre " -> " g-post ")")
+            (<= g-post g-pre) {:before g-pre :after g-post}))
+
+  ;; (c)
+  (let [untouched (filterv #(not (contains? (set ids) (:id %))) (:shards before))
+        still (set (map :dict-root (:shards after)))]
+    (check! "compact: shards outside the merge keep their exact blocks"
+            (every? #(contains? still (:dict-root %)) untouched)
+            {:untouched (mapv :id untouched)}))
+
+  ;; (d) — a non-adjacent pair would leave a hole that every metadata read
+  ;; resolves by arithmetic, so it is refused rather than reordered.
+  (let [bases (sort-by :doc-base (:shards after))]
+    (when (>= (count bases) 3)
+      (check! "compact: a non-adjacent pair is refused"
+              (try (compact/compact! store store node/sha256-hex mc
+                                     [(:id (first bases)) (:id (last bases))])
+                   false
+                   (catch :default _ true))
+              nil)))
+  (check! "compact: asking for fewer than two shards is refused"
+          (try (compact/compact! store store node/sha256-hex mc
+                                 [(:id (first (:shards after)))])
                false
                (catch :default _ true))
           nil))

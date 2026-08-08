@@ -139,8 +139,12 @@
             (recur (conj out cur) [] (next xs))
             (recur out cur (next xs))))))))
 
-(defn- build-dict-tree
-  "Sorted `[term entry]` pairs -> a content-addressed search tree of blocks.
+(defn build-dict-tree
+  "PUBLIC because `compact/compact!` rebuilds these three structures from
+  postings it read back out of existing shards, rather than from documents.
+  A second implementation of any of them would be a second block format.
+
+  Sorted `[term entry]` pairs -> a content-addressed search tree of blocks.
 
   Height is logarithmic in the term count, and height is exactly the number of
   round trips a client spends to locate one term. That is the whole reason the
@@ -176,7 +180,7 @@
 
 ;; ── postings ────────────────────────────────────────────────────────
 
-(defn- build-postings
+(defn build-postings
   "One term's postings for one shard.
 
   Sorted by impact descending, ties broken by doc-id ascending so a rebuild
@@ -205,7 +209,7 @@
 
 ;; ── metadata ────────────────────────────────────────────────────────
 
-(defn- build-meta
+(defn build-meta
   "Doc metadata, chunked so the final display fetch is one GET for a run of
   neighbouring doc-ids rather than one per hit."
   [sink hash-fn chunk-size base docs]
