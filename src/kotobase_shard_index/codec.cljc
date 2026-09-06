@@ -43,11 +43,60 @@
   #?(:clj (alength (.getBytes ^String s "UTF-8"))
      :cljs (.-length (.encode (js/TextEncoder.) s))))
 
-(defn cid
-  "Content address of `x` under `hash-fn` (bytes-string -> hex string).
+(def ^:private b32-alphabet "abcdefghijklmnopqrstuvwxyz234567")
 
-  Prefix `b` marks this as this subsystem's own address form. It is NOT a
-  multiformats CIDv1 — `kotoba-lang/io-multiformats` exists and adopting it is
-  a named follow-up, not something quietly assumed to have happened."
+(defn- hex->bytes [^String s]
+  (when (odd? (count s))
+    (throw (ex-info "hash-fn returned an odd number of hex digits" {:hex s})))
+  (mapv (fn [pair]
+          #?(:clj (Integer/parseInt (apply str pair) 16)
+             :cljs (js/parseInt (apply str pair) 16)))
+        (partition 2 s)))
+
+(defn- base32-lower-no-pad
+  "RFC 4648 base32, lowercase, unpadded — multibase 'b'. Trailing bits are
+  zero-filled to the next 5-bit group, which is what the decoder expects to
+  discard."
+  [bytes]
+  (let [{:keys [bits value out]}
+        (reduce (fn [{:keys [bits value out]} b]
+                  (loop [bits (+ bits 8) value (bit-or (bit-shift-left value 8) b) out out]
+                    (if (>= bits 5)
+                      (recur (- bits 5) value
+                             (str out (nth b32-alphabet
+                                           (bit-and (bit-shift-right value (- bits 5)) 31))))
+                      {:bits bits :value value :out out})))
+                {:bits 0 :value 0 :out ""}
+                bytes)]
+    (if (pos? bits)
+      (str out (nth b32-alphabet (bit-and (bit-shift-left value (- 5 bits)) 31)))
+      out)))
+
+(defn address
+  "Content address of already-canonical `payload` under `hash-fn`
+  (string -> lowercase hex digest).
+
+  A **multiformats CIDv1, raw codec, sha2-256, multibase base32-lower** —
+  the same address form `GET /ipld/<cid>` serves and
+  `kotobase.blocks/verify-block` checks. Header `01 55 12 20`.
+
+  This used to be `(str \"b\" hex)`, this subsystem's own form, with adopting
+  multiformats recorded as a named follow-up (ADR-2608071500). The follow-up
+  is what this is: the digest was always sha-256 of the canonical bytes, so
+  the change is a re-encoding of an address that was already the right
+  number — and it is what lets these blocks BE ordinary blocks in the
+  storage plane rather than a private namespace beside it.
+
+  It is a **format change**: every address moves, so an index built before
+  this must be rebuilt rather than read. Nothing published had been."
+  [hash-fn payload]
+  (let [digest (hex->bytes (hash-fn payload))]
+    (when-not (= 32 (count digest))
+      (throw (ex-info "hash-fn must return a 32-byte (sha2-256) digest"
+                      {:bytes (count digest)})))
+    (str "b" (base32-lower-no-pad (into [0x01 0x55 0x12 0x20] digest)))))
+
+(defn cid
+  "Content address of block value `x`. See `address`."
   [hash-fn x]
-  (str "b" (hash-fn (encode x))))
+  (address hash-fn (encode x)))

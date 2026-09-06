@@ -11,6 +11,22 @@ path could not get there), **ADR-2608085000** (removing the client-side
 fan-out, and what a client may write back), **ADR-2608086000** (appending
 without rebuilding, and the first measurement on a real corpus).
 
+## Addresses are multiformats CIDv1
+
+A block's address is `CIDv1 / raw / sha2-256 / base32-lower` — the same form
+`GET /ipld/<cid>` on the kotobase storage plane serves, and the same form
+`kotobase.blocks/verify-block` checks. Header `01 55 12 20`.
+
+It used to be `b<hex>`, this subsystem's own form, with adopting multiformats
+recorded as a named follow-up rather than quietly assumed. This is that
+follow-up. The digest was always sha-256 of the canonical bytes, so the change
+re-encodes an address that was already the right number — and it is what lets
+these blocks *be* ordinary blocks in the storage plane rather than a private
+namespace beside it.
+
+It is a format change: every address moves, so an index built before this must
+be rebuilt rather than read. Nothing published had been.
+
 Everything here is portable `.cljc` with **zero dependencies** — that is what
 lets the read half run in a browser against a bucket, which is the whole point.
 
