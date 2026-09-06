@@ -98,4 +98,4 @@
   [store hash-fn cid]
   (let [payload (-get store cid)]
     (and (some? payload)
-         (= cid (str "b" (hash-fn payload))))))
+         (= cid (codec/address hash-fn payload)))))

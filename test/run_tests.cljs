@@ -45,6 +45,33 @@
           (try (codec/encode #{1 2 3}) false (catch :default _ true))
           nil))
 
+;; ── 1b. the address is a real multiformats CIDv1 ────────────────────
+;;
+;; These two vectors are published constants of the multiformats ecosystem,
+;; not values this code produced and then froze. That is the point: an
+;; address form is only useful if something else agrees with it, and
+;; comparing our encoder against our decoder would only prove it is
+;; self-consistent — which the previous `b<hex>` form also was.
+
+(is= "raw CIDv1 of empty content"
+     "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku"
+     (codec/address
+      (constantly "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+      ""))
+
+(is= "raw CIDv1 of \"hello\", hashed by the node adapter"
+     "bafkreibm6jg3ux5qumhcn2b3flc3tyu6dmlb4xa7u5bf44yegnrjhc4yeq"
+     (codec/address node/sha256-hex "hello"))
+
+;; A digest that is not 32 bytes cannot be a sha2-256 multihash, and the
+;; header this code writes says it is one. Encoding it anyway would produce a
+;; well-formed-looking CID that no reader could ever verify — an address that
+;; fails later, somewhere else, as corruption.
+(check! "a non-sha2-256 digest is refused rather than encoded"
+        (try (codec/address (constantly "deadbeef") "x") false
+             (catch :default _ true))
+        {})
+
 ;; ── 2. analyzer ─────────────────────────────────────────────────────
 
 (is= "analyze: ascii runs" ["hello" "world" "42"] (analyze/tokenize "Hello, World 42!"))
