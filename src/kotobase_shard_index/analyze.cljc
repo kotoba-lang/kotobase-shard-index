@@ -7,7 +7,7 @@
   The analyzer is part of the wire format. A client that tokenizes differently
   from the builder looks up terms that were never written, and gets zero hits
   rather than an error. Changing it changes the index."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (def ^:private ascii-run #"[a-z0-9]+")
 
@@ -41,7 +41,7 @@
   "Terms in `s`, in order, with duplicates kept — term frequency is the point."
   [s]
   (when (string? s)
-    (let [lowered (str/lower-case s)]
+    (let [lowered (str/lower s)]
       (into (vec (re-seq ascii-run lowered))
             (mapcat bigrams)
             (cjk-runs lowered)))))

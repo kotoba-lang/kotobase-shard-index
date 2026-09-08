@@ -18,7 +18,7 @@
   - **Varying document length**, or BM25's length normalisation is a constant
     and every score ties.
   - **No randomness the caller cannot reproduce.** Same seed, same bytes."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (defn lcg [seed] (atom (mod seed 2147483648)))
 
