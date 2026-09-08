@@ -22,7 +22,7 @@
   The synthetic corpus is uniform by construction, so every append would look
   statistically identical to the corpus it joins — which is precisely the
   condition under which drift is smallest and the measurement is flattering."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [kotobase-shard-index.analyze :as analyze]
             [kotobase-shard-index.append :as append]
             [kotobase-shard-index.block :as block]

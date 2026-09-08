@@ -12,7 +12,7 @@
   Each mutation is applied to a COPY of `route.cljc`, the suite is run against
   the copy, and the file is restored. A mutation that leaves the suite green
   is a hole in the suite, not a harmless edit."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (def fs (js/require "node:fs"))
 (def cp (js/require "node:child_process"))
