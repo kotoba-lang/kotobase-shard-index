@@ -2,7 +2,7 @@
 ;;
 ;; This library has no dependencies and does not want any — reading blocks in
 ;; a browser is the point, and every dependency is the first thing in the way
-;; (README). It is used through `npm test` / `nbb --classpath src` and by
+;; (README). It is used through `npm test` / `kbb --backend sci --classpath src` and by
 ;; consumers who add `src` to their own source paths, none of which need this
 ;; file.
 ;;

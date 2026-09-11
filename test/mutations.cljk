@@ -1,7 +1,7 @@
 (ns mutations
   "Does the routing suite actually check the routing bound?
 
-    npx nbb --classpath src test/mutations.sh.cljs
+    kbb --backend sci --classpath src test/mutations.sh.cljs
 
   ADR-2608071500 found that the original exactness suite passed with the
   stopping bound understated 4x and with the unseen-document term removed
@@ -38,7 +38,7 @@
 
 (defn run-suite []
   (try
-    (let [out (.execSync cp "npx nbb --classpath src test/run_tests.cljk"
+    (let [out (.execSync cp "kbb --backend sci --classpath src test/run_tests.cljk"
                          #js {:encoding "utf8" :stdio "pipe"})]
       {:exit 0 :out out})
     (catch :default e

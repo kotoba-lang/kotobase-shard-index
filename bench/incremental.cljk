@@ -1,7 +1,7 @@
 (ns incremental
   "Two questions an append has to answer, on a real corpus.
 
-    npx nbb --classpath src:bench \\
+    kbb --backend sci --classpath src:bench \\
       bench/incremental.cljk [out.edn]
 
   **1. What does an append cost?** Blocks are content-addressed, so re-putting
