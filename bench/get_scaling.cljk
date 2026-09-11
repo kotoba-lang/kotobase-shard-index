@@ -2,7 +2,7 @@
   "How many object-store GETs does one query cost, as the corpus grows?
 
     npx nbb --classpath src \\
-      bench/get_scaling.cljs [out.edn]
+      bench/get_scaling.cljk [out.edn]
 
   This is the number the design rests on. A client with no server pays one
   round trip per GET, so GETs-per-query IS the cost model.

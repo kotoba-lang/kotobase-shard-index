@@ -41,13 +41,13 @@
    :impact-scale 1000
    ;; `:content` decides block boundaries by hashing the key at that position;
    ;; `:fixed` uses a running count. Fixed is kept ONLY so the A/B in
-   ;; bench/incremental.cljs can measure what it costs — it makes an append
+   ;; bench/incremental.cljk can measure what it costs — it makes an append
    ;; rewrite the dictionary from the insertion point onward, so it is never
    ;; the right choice for an index that will be appended to.
    :chunking :content
    ;; Write the routing dictionary. Costs blocks at build time and removes the
    ;; per-shard fan-out at query time; `false` reproduces the v1 index exactly,
-   ;; which is what the A/B in `bench/route_scaling.cljs` compares against.
+   ;; which is what the A/B in `bench/route_scaling.cljk` compares against.
    :route? true})
 
 (defn- round-int [x]
@@ -362,7 +362,7 @@
                     ;; the same scale as every existing shard's. The basis
                     ;; goes stale as the corpus grows, which is what a
                     ;; rebuild is for, and the drift is measured rather than
-                    ;; assumed (`bench/incremental.cljs`).
+                    ;; assumed (`bench/incremental.cljk`).
                     :scoring-basis {:doc-count n
                                     :avgdl-x1000 (round-int (* 1000 avgdl))
                                     :generation 0}

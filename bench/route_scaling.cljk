@@ -2,7 +2,7 @@
   "Does the routing dictionary remove the fan-out term? A/B, same corpus.
 
     npx nbb --classpath src \\
-      bench/route_scaling.cljs [out.edn]
+      bench/route_scaling.cljk [out.edn]
 
   `get_scaling.cljs` measured the v1 read path and found the ceiling: growing
   the shard count 1 -> 32 multiplied GETs per query by 12.2x while per-shard

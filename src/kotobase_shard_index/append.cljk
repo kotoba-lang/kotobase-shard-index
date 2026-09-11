@@ -18,7 +18,7 @@
      (term, shard) pair lands, and internal nodes only along those paths;
   3. one manifest.
 
-  Nothing belonging to an existing shard is rewritten. `bench/incremental.cljs`
+  Nothing belonging to an existing shard is rewritten. `bench/incremental.cljk`
   measures the ratio against a full rebuild rather than asserting it.
 
   ## The part that is not free: the scoring basis
@@ -41,7 +41,7 @@
 
   - `:generation` counts appends since the last full build.
   - `drift-report` says how far the corpus has moved from its basis.
-  - `bench/incremental.cljs` measures the top-k disagreement against a full
+  - `bench/incremental.cljk` measures the top-k disagreement against a full
     rebuild of the same documents, which is the number that decides when a
     rebuild is due.
 
@@ -108,7 +108,7 @@
   still close to what a rebuild would produce and a large one means they are
   not. This reports the input to that judgement; it does not decide for the
   caller, because the threshold depends on how much rank movement the caller
-  can tolerate — which `bench/incremental.cljs` measures."
+  can tolerate — which `bench/incremental.cljk` measures."
   [store manifest-cid]
   (let [m (block/get-block store manifest-cid)
         basis (:scoring-basis m)

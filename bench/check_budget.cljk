@@ -2,7 +2,7 @@
   "Regression gate for the only number this design rests on: GETs per query.
 
     npx nbb --classpath src \\
-      bench/check_budget.cljs [--write]
+      bench/check_budget.cljk [--write]
 
   `--write` records the current measurement as the new budget. Without it the
   measurement is compared to `bench/budget.edn` and a regression exits 1.
@@ -80,7 +80,7 @@
      :route-max-gets (apply max (map :gets route-per-query))
      :route-max-waves (apply max (map :waves route-per-query))}))
 
-;; `test/mutations.cljs` edits `src/` in place while it runs. A measurement
+;; `test/mutations.cljk` edits `src/` in place while it runs. A measurement
 ;; taken in that window measures MUTATED code, and the direction it errs in is
 ;; the dangerous one: a broken stop condition stops EARLY, so the numbers look
 ;; BETTER. Measured 2026-08-08 — 29 GETs against the true 149, a 5x
@@ -93,7 +93,7 @@
 
 (defn -main [& args]
   (when (.existsSync fs mutation-lock)
-    (println (str "FAIL: " mutation-lock " exists — test/mutations.cljs is rewriting src/ "
+    (println (str "FAIL: " mutation-lock " exists — test/mutations.cljk is rewriting src/ "
                   "right now. Any measurement taken here would be of mutated code."))
     (js/process.exit 1))
   (let [now (measure)
