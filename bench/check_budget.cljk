@@ -1,7 +1,7 @@
 (ns check-budget
   "Regression gate for the only number this design rests on: GETs per query.
 
-    npx nbb --classpath src \\
+    kbb --backend sci --classpath src \\
       bench/check_budget.cljk [--write]
 
   `--write` records the current measurement as the new budget. Without it the

@@ -1,7 +1,7 @@
 (ns route-scaling
   "Does the routing dictionary remove the fan-out term? A/B, same corpus.
 
-    npx nbb --classpath src \\
+    kbb --backend sci --classpath src \\
       bench/route_scaling.cljk [out.edn]
 
   `get_scaling.cljs` measured the v1 read path and found the ceiling: growing

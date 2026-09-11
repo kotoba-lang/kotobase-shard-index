@@ -150,11 +150,11 @@ Index cost: blocks ×1.00–1.02, bytes ×1.18–1.32.
 npm install --no-save nbb@1.4.208
 
 # tests (25 assertions, including the exactness oracle)
-npx nbb --classpath src \
+kbb --backend sci --classpath src \
   test/run_tests.cljk
 
 # GET-scaling receipt -> bench/results/
-npx nbb --classpath src \
+kbb --backend sci --classpath src \
   bench/get_scaling.cljk
 ```
 
@@ -256,7 +256,7 @@ is mostly Japanese. `bench/real_corpus.cljk` reads this workspace's own ADRs
 and repo READMEs instead: 5,775 documents of mixed Japanese and English, real
 vocabulary 127,042 against the synthetic 20,000.
 
-    npx nbb --classpath src:bench \
+    kbb --backend sci --classpath src:bench \
       bench/incremental.cljk
 
 It is not a web crawl — small, technical, and biased toward this workspace's

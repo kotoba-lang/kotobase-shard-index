@@ -1,7 +1,7 @@
 (ns run-tests
   "Portable assertions for the shard index. Run:
 
-    npx nbb --classpath src \\
+    kbb --backend sci --classpath src \\
       test/run_tests.cljk
 
   The load-bearing test is `exactness`: it checks the bounded scan against a
