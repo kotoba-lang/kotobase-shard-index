@@ -2,7 +2,7 @@
   "Portable assertions for the shard index. Run:
 
     npx nbb --classpath src \\
-      test/run_tests.cljs
+      test/run_tests.cljk
 
   The load-bearing test is `exactness`: it checks the bounded scan against a
   full scan of the same index over synthetic corpora and queries. The stopping

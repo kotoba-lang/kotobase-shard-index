@@ -2,7 +2,7 @@
   "Two questions an append has to answer, on a real corpus.
 
     npx nbb --classpath src:bench \\
-      bench/incremental.cljs [out.edn]
+      bench/incremental.cljk [out.edn]
 
   **1. What does an append cost?** Blocks are content-addressed, so re-putting
   an unchanged block lands on the same key. The real cost of an append is the
