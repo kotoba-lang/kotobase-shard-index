@@ -4,7 +4,7 @@
   A block's identity is the hash of its bytes, so two writers that mean the
   same block must produce the same bytes. Clojure switches map implementation
   above 8 entries and stops preserving insertion order (measured in this
-  workspace on `css.core/declarations`, CLAUDE.md), so `pr-str` over a literal
+  workspace on `css.core/declarations`, AGENTS.md), so `pr-str` over a literal
   map is NOT deterministic at block sizes we actually use. `canonical` sorts
   every map before printing.
 
